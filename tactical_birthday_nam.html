@@ -1,0 +1,1352 @@
+<!doctype html>
+<html lang="en" class="dark h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OPERATION NAM-25 // Tactical Briefing Console</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              voidNavy: "#050811",
+              titaniumGrey: "#121b2d",
+              hyperCyan: "#00F0FF",
+              tacticalOrange: "#FF8800",
+              beamRed: "#FF2A6D",
+              armorWhite: "#E2E8F0",
+              mechShadow: "#3A506B",
+            },
+            fontFamily: {
+              orbitron: ["Orbitron", "sans-serif"],
+              rajdhani: ["Rajdhani", "sans-serif"],
+              mono: ['"Share Tech Mono"', "monospace"],
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      /* Custom Mecha HUD Styles */
+      body {
+        background-color: #050811;
+        background-image:
+          linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+        background-size: 30px 30px;
+        font-family: "Rajdhani", sans-serif;
+        overflow-x: hidden;
+      }
+
+      /* Scanline Overlay for Cockpit Feel */
+      .scanlines {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          rgba(18, 16, 16, 0) 50%,
+          rgba(0, 0, 0, 0.25) 50%
+        );
+        background-size: 100% 4px;
+        z-index: 999;
+        pointer-events: none;
+        opacity: 0.4;
+      }
+
+      /* Hologram Flicker & Glitch Animations */
+      @keyframes flicker {
+        0% {
+          opacity: 0.98;
+        }
+        50% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0.99;
+        }
+      }
+      .hud-glow {
+        animation: flicker 0.15s infinite;
+      }
+
+      /* Neon Box Glows */
+      .border-glow-cyan {
+        box-shadow:
+          0 0 10px rgba(0, 240, 255, 0.2),
+          inset 0 0 10px rgba(0, 240, 255, 0.1);
+        border: 1px solid rgba(0, 240, 255, 0.3);
+      }
+      .border-glow-orange {
+        box-shadow:
+          0 0 10px rgba(255, 136, 0, 0.2),
+          inset 0 0 10px rgba(255, 136, 0, 0.1);
+        border: 1px solid rgba(255, 136, 0, 0.3);
+      }
+      .border-glow-red {
+        box-shadow:
+          0 0 10px rgba(255, 42, 109, 0.2),
+          inset 0 0 10px rgba(255, 42, 109, 0.1);
+        border: 1px solid rgba(255, 42, 109, 0.3);
+      }
+
+      /* Tactical Corner Brackets */
+      .corner-bracket {
+        position: relative;
+      }
+      .corner-bracket::before,
+      .corner-bracket::after {
+        content: "";
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        border-color: #00f0ff;
+        border-style: solid;
+        pointer-events: none;
+      }
+      .corner-bracket::before {
+        top: -1px;
+        left: -1px;
+        border-width: 2px 0 0 2px;
+      }
+      .corner-bracket::after {
+        bottom: -1px;
+        right: -1px;
+        border-width: 0 2px 2px 0;
+      }
+
+      /* Audio Equalizer wave animation */
+      .eq-bar {
+        animation: bounce 0.8s ease-in-out infinite alternate;
+      }
+      @keyframes bounce {
+        0% {
+          height: 10%;
+        }
+        100% {
+          height: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body
+    class="text-armorWhite min-h-screen flex flex-col p-4 md:p-6 select-none relative"
+  >
+    <div class="scanlines"></div>
+
+    <!-- Audio Synthesis Module (Synthesized SFX for Cockpit UI) -->
+    <script>
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      function playBeep(type = "click") {
+        if (audioCtx.state === "suspended") {
+          audioCtx.resume();
+        }
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === "click") {
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(
+            800,
+            audioCtx.currentTime + 0.08,
+          );
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(
+            0.01,
+            audioCtx.currentTime + 0.08,
+          );
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.08);
+        } else if (type === "success") {
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+          osc.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.08);
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(
+            0.01,
+            audioCtx.currentTime + 0.25,
+          );
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.25);
+        } else if (type === "radar") {
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(
+            300,
+            audioCtx.currentTime + 0.15,
+          );
+          gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(
+            0.01,
+            audioCtx.currentTime + 0.15,
+          );
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.15);
+        } else if (type === "radio") {
+          // High frequency static pop
+          osc.type = "square";
+          osc.frequency.setValueAtTime(2500, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(
+            0.001,
+            audioCtx.currentTime + 0.1,
+          );
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.1);
+        }
+      }
+    </script>
+
+    <!-- HEADER NAVIGATION -->
+    <header
+      class="w-full mb-6 border-b border-hyperCyan/20 pb-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+    >
+      <div class="flex items-center gap-4">
+        <div
+          class="px-4 py-2 bg-hyperCyan/10 border-2 border-hyperCyan text-hyperCyan font-orbitron font-extrabold text-2xl tracking-widest corner-bracket select-none"
+        >
+          N-25
+        </div>
+        <div>
+          <h1
+            class="font-orbitron font-bold text-lg md:text-xl text-armorWhite tracking-wider uppercase flex items-center gap-2"
+          >
+            Operation Nam-25
+            <span
+              class="text-xs bg-beamRed/20 text-beamRed border border-beamRed px-1.5 rounded animate-pulse"
+              >LIVE HUD</span
+            >
+          </h1>
+          <p
+            class="text-xs font-mono text-mechShadow tracking-widest uppercase"
+          >
+            System Briefing & Mission Allocation Console
+          </p>
+        </div>
+      </div>
+
+      <!-- COUNTDOWN / SYSTEM TELEMETRY -->
+      <div class="flex items-center gap-4 font-mono text-sm">
+        <div
+          class="bg-titaniumGrey/60 px-4 py-2 rounded border border-hyperCyan/20 flex flex-col items-end"
+        >
+          <span class="text-[10px] text-mechShadow uppercase tracking-widest"
+            >TACTICAL TARGET INITIATION</span
+          >
+          <span
+            class="text-hyperCyan font-bold tracking-wider"
+            id="countdown-timer"
+            >T-MINUS 00d 00h 00m 00s</span
+          >
+        </div>
+        <div class="hidden sm:flex flex-col text-right">
+          <span
+            class="text-xs text-emerald-400 font-bold flex items-center gap-1 justify-end"
+          >
+            <span
+              class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"
+            ></span>
+            COCKPIT_SECURE
+          </span>
+          <span class="text-[10px] text-mechShadow uppercase"
+            >Sector // Ho Chi Minh City</span
+          >
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN COCKPIT WORKSPACE -->
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow">
+      <!-- LEFT SIDEBAR: INTEL & SQUAD ROSTER (4 Columns) -->
+      <div class="lg:col-span-4 flex flex-col gap-6">
+        <!-- SYSTEM INTEL CARD -->
+        <section
+          class="bg-titaniumGrey/40 backdrop-blur-md rounded-lg p-5 border-glow-cyan corner-bracket relative"
+        >
+          <div
+            class="absolute top-2 right-3 font-mono text-[9px] text-hyperCyan/50"
+          >
+            INTEL_LOG_A
+          </div>
+          <h2
+            class="font-orbitron text-sm font-bold text-hyperCyan tracking-wider mb-4 border-b border-hyperCyan/10 pb-2 flex items-center gap-2"
+          >
+            <span>//</span> PILOT INTELLIGENCE DATA
+          </h2>
+          <div class="space-y-3 font-mono text-xs">
+            <div class="flex justify-between border-b border-hyperCyan/5 pb-1">
+              <span class="text-mechShadow">TARGET SUBJECT:</span>
+              <span class="text-armorWhite font-semibold">Phạm Sơn Nam</span>
+            </div>
+            <div class="flex justify-between border-b border-hyperCyan/5 pb-1">
+              <span class="text-mechShadow">DESIGNATED ROLE:</span>
+              <span class="text-beamRed font-bold"
+                >Product Owner / Fleet Commander</span
+              >
+            </div>
+            <div class="flex justify-between border-b border-hyperCyan/5 pb-1">
+              <span class="text-mechShadow">LAUNCH COORDINATES:</span>
+              <span class="text-armorWhite">10.7626° N, 106.6602° E</span>
+            </div>
+            <div class="flex justify-between border-b border-hyperCyan/5 pb-1">
+              <span class="text-mechShadow">AGE PROTOCOL SET:</span>
+              <span class="text-tacticalOrange font-bold"
+                >25 Years // Grade S-Class</span
+              >
+            </div>
+            <div class="flex justify-between">
+              <span class="text-mechShadow">AUTHORIZED PARTY:</span>
+              <span class="text-emerald-400">Approved by Catto Corp</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- P.H.U.O.C DIRECT ASSISTANCE INTERFACE -->
+        <section
+          class="bg-titaniumGrey/40 backdrop-blur-md rounded-lg p-5 border-glow-orange corner-bracket relative"
+        >
+          <div
+            class="absolute top-2 right-3 font-mono text-[9px] text-tacticalOrange/50"
+          >
+            P.H.U.O.C LINK
+          </div>
+          <h2
+            class="font-orbitron text-sm font-bold text-tacticalOrange tracking-wider mb-3 border-b border-tacticalOrange/10 pb-2 flex items-center justify-between"
+          >
+            <span class="flex items-center gap-2"
+              ><span>//</span> P.H.U.O.C TACTICAL LINK</span
+            >
+            <!-- Dynamic blinking HARO eye -->
+            <span
+              class="w-3 h-3 rounded-full bg-tacticalOrange animate-pulse shadow-[0_0_8px_rgba(255,136,0,0.8)]"
+            ></span>
+          </h2>
+
+          <div class="space-y-4">
+            <div
+              class="bg-voidNavy/70 p-3 rounded border border-tacticalOrange/20"
+            >
+              <div class="flex items-center gap-2 mb-2">
+                <!-- Waveform bars -->
+                <div class="flex items-end gap-0.5 h-3 w-6">
+                  <span
+                    class="eq-bar w-1 bg-tacticalOrange rounded"
+                    style="animation-delay: 0.1s"
+                  ></span>
+                  <span
+                    class="eq-bar w-1 bg-tacticalOrange rounded"
+                    style="animation-delay: 0.4s"
+                  ></span>
+                  <span
+                    class="eq-bar w-1 bg-tacticalOrange rounded"
+                    style="animation-delay: 0.2s"
+                  ></span>
+                  <span
+                    class="eq-bar w-1 bg-tacticalOrange rounded"
+                    style="animation-delay: 0.5s"
+                  ></span>
+                </div>
+                <span
+                  class="font-mono text-[10px] text-tacticalOrange font-bold uppercase tracking-wider"
+                  >Audio Briefing Feed</span
+                >
+              </div>
+              <button
+                onclick="playVoiceBriefing()"
+                id="voice-btn"
+                class="w-full py-2 bg-tacticalOrange/20 hover:bg-tacticalOrange/30 text-tacticalOrange border border-tacticalOrange/40 font-mono text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                  class="w-4 h-4"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
+                  />
+                </svg>
+                Listen to Intel Packet
+              </button>
+              <p
+                id="voice-subtitles"
+                class="mt-2 text-[11px] font-mono text-mechShadow italic leading-snug"
+              >
+                P.H.U.O.C: "Ready to deliver cockpit telemetry, Pilot Nam."
+              </p>
+            </div>
+
+            <!-- Live Mock Console Shell -->
+            <div class="space-y-2">
+              <div
+                class="bg-voidNavy/80 p-3 rounded font-mono text-xs border border-voidNavy h-28 overflow-y-auto flex flex-col gap-1.5"
+                id="console-logs"
+              >
+                <div class="text-mechShadow">
+                  [SYSTEM INIT] Interface operational.
+                </div>
+                <div class="text-hyperCyan">
+                  [PILOTS] Squad linked and fueled.
+                </div>
+                <div class="text-tacticalOrange">
+                  [BRIEFING] Target Launch is set for June 20.
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <input
+                  type="text"
+                  id="console-input"
+                  placeholder="Query P.H.U.O.C command..."
+                  class="bg-voidNavy/70 border border-tacticalOrange/30 px-3 py-2 text-xs font-mono rounded text-armorWhite placeholder:text-mechShadow focus:outline-none focus:border-tacticalOrange flex-grow"
+                />
+                <button
+                  onclick="sendConsoleCommand()"
+                  class="bg-tacticalOrange text-voidNavy hover:bg-tacticalOrange/90 font-bold font-mono text-xs uppercase px-4 rounded transition-all"
+                >
+                  SEND
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- COCKPIT CREW ROSTER -->
+        <section
+          class="bg-titaniumGrey/40 backdrop-blur-md rounded-lg p-5 border-glow-cyan corner-bracket relative"
+        >
+          <h2
+            class="font-orbitron text-sm font-bold text-hyperCyan tracking-wider mb-4 border-b border-hyperCyan/10 pb-2 flex items-center justify-between"
+          >
+            <span>//</span> CONNECTED FLEET PILOTS
+            <span class="text-xs font-mono text-emerald-400">6 ACTIVE</span>
+          </h2>
+          <div class="space-y-2.5">
+            <!-- Active Crew items -->
+            <div
+              onclick="selectPilot('Nam', 'Commander / Leader')"
+              class="pilot-node flex items-center justify-between p-2.5 bg-hyperCyan/5 border border-hyperCyan/40 rounded cursor-pointer hover:bg-hyperCyan/10 transition-all"
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-8 h-8 rounded-full bg-hyperCyan/20 border border-hyperCyan flex items-center justify-center text-hyperCyan font-orbitron font-black text-xs"
+                >
+                  P01
+                </div>
+                <div>
+                  <h3 class="font-orbitron text-xs font-bold text-armorWhite">
+                    Phạm Sơn Nam
+                  </h3>
+                  <p
+                    class="text-[10px] font-mono text-hyperCyan tracking-widest uppercase"
+                  >
+                    Commander & Leader
+                  </p>
+                </div>
+              </div>
+              <span
+                class="text-[10px] font-mono text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 border border-emerald-400/30 rounded"
+                >COCKPIT</span
+              >
+            </div>
+
+            <div
+              onclick="selectPilot('Hương', 'Striker / Vanguard')"
+              class="pilot-node flex items-center justify-between p-2.5 bg-voidNavy/40 border border-hyperCyan/10 rounded cursor-pointer hover:bg-hyperCyan/5 hover:border-hyperCyan/30 transition-all"
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-8 h-8 rounded-full bg-titaniumGrey border border-mechShadow flex items-center justify-center text-mechShadow font-orbitron font-black text-xs"
+                >
+                  P02
+                </div>
+                <div>
+                  <h3 class="font-orbitron text-xs font-bold text-armorWhite">
+                    Hương
+                  </h3>
+                  <p
+                    class="text-[10px] font-mono text-mechShadow tracking-widest uppercase"
+                  >
+                    Striker // Vanguard
+                  </p>
+                </div>
+              </div>
+              <span class="text-[10px] font-mono text-emerald-400">ONLINE</span>
+            </div>
+
+            <div
+              onclick="selectPilot('Lan', 'Sniper / Scouting')"
+              class="pilot-node flex items-center justify-between p-2.5 bg-voidNavy/40 border border-hyperCyan/10 rounded cursor-pointer hover:bg-hyperCyan/5 hover:border-hyperCyan/30 transition-all"
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-8 h-8 rounded-full bg-titaniumGrey border border-mechShadow flex items-center justify-center text-mechShadow font-orbitron font-black text-xs"
+                >
+                  P03
+                </div>
+                <div>
+                  <h3 class="font-orbitron text-xs font-bold text-armorWhite">
+                    Lan
+                  </h3>
+                  <p
+                    class="text-[10px] font-mono text-mechShadow tracking-widest uppercase"
+                  >
+                    Sniper // Scouting
+                  </p>
+                </div>
+              </div>
+              <span class="text-[10px] font-mono text-emerald-400">ONLINE</span>
+            </div>
+
+            <div
+              onclick="selectPilot('Mi', 'Navigator / Logistician')"
+              class="pilot-node flex items-center justify-between p-2.5 bg-voidNavy/40 border border-hyperCyan/10 rounded cursor-pointer hover:bg-hyperCyan/5 hover:border-hyperCyan/30 transition-all"
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-8 h-8 rounded-full bg-titaniumGrey border border-mechShadow flex items-center justify-center text-mechShadow font-orbitron font-black text-xs"
+                >
+                  P04
+                </div>
+                <div>
+                  <h3 class="font-orbitron text-xs font-bold text-armorWhite">
+                    Mi
+                  </h3>
+                  <p
+                    class="text-[10px] font-mono text-mechShadow tracking-widest uppercase"
+                  >
+                    Navigator // Logistical
+                  </p>
+                </div>
+              </div>
+              <span class="text-[10px] font-mono text-emerald-400">ONLINE</span>
+            </div>
+
+            <!-- Collapsed Pilot Pack -->
+            <div
+              class="p-2 border border-dashed border-mechShadow/40 rounded text-center text-xs font-mono text-mechShadow hover:text-hyperCyan cursor-pointer transition-colors"
+              onclick="playBeep('radar')"
+            >
+              + 2 Escort Pilots Active (Lê Kiệt & Khoa)
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- RIGHT MAIN ARENA: MISSION DIRECTIVES, CUSTOMIZER & LOADOUT MANAGER (8 Columns) -->
+      <div class="lg:col-span-8 flex flex-col gap-6">
+        <!-- TACTICAL MISSION DIRECTIVES (TIMELINE) -->
+        <section
+          class="bg-titaniumGrey/40 backdrop-blur-md rounded-lg p-5 border-glow-cyan corner-bracket relative"
+        >
+          <h2
+            class="font-orbitron text-sm font-bold text-hyperCyan tracking-wider mb-6 border-b border-hyperCyan/10 pb-2 flex items-center gap-2"
+          >
+            <span>//</span> OPERATION ROADMAP & DIRECTIVES
+          </h2>
+
+          <div class="relative pl-6 md:pl-10 space-y-6">
+            <!-- Continuous Timeline Vertical Line -->
+            <div
+              class="absolute left-3 md:left-5 top-2 bottom-2 w-0.5 bg-gradient-to-b from-hyperCyan via-tacticalOrange to-beamRed"
+            ></div>
+
+            <!-- Directive Stage 1 -->
+            <div class="relative group">
+              <!-- Glow Orb Marker -->
+              <div
+                class="absolute -left-[23px] md:-left-[29px] top-1.5 w-4 h-4 rounded-full bg-hyperCyan border-2 border-voidNavy shadow-[0_0_8px_rgba(0,240,255,0.8)] z-10"
+              ></div>
+
+              <div
+                class="p-4 bg-voidNavy/60 hover:bg-voidNavy/95 rounded border border-hyperCyan/10 hover:border-hyperCyan/30 transition-all duration-300"
+              >
+                <div
+                  class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2"
+                >
+                  <span
+                    class="font-orbitron font-bold text-hyperCyan text-sm flex items-center gap-2"
+                  >
+                    <span
+                      class="text-xs bg-hyperCyan/20 text-hyperCyan px-1.5 rounded"
+                      >PHASE 01</span
+                    >
+                    KARAOKE SQUAD ASSEMBLE
+                  </span>
+                  <span class="font-mono text-xs text-hyperCyan tracking-wider"
+                    >15:30 - 18:00</span
+                  >
+                </div>
+                <p class="text-xs text-armorWhite/80 leading-relaxed mb-3">
+                  Full cockpit squad synchronization at
+                  <strong class="text-hyperCyan">ICOOL Karaoke</strong>. Warm up
+                  speech synthetics and vocal core frequencies.
+                </p>
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-[10px] text-mechShadow uppercase"
+                    >Face of the force: Pilot Lê Kiệt</span
+                  >
+                  <button
+                    onclick="
+                      window.open(
+                        'https://maps.google.com/?q=Karaoke+ICOOL',
+                        '_blank',
+                      )
+                    "
+                    class="px-3 py-1 bg-hyperCyan/10 hover:bg-hyperCyan/20 text-hyperCyan border border-hyperCyan/30 rounded text-[10px] font-mono uppercase tracking-wider transition-colors flex items-center gap-1.5"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke-width="2"
+                      stroke="currentColor"
+                      class="w-3.5 h-3.5"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                      />
+                    </svg>
+                    Navigate Target
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Directive Stage 2 -->
+            <div class="relative group">
+              <!-- Glow Orb Marker -->
+              <div
+                class="absolute -left-[23px] md:-left-[29px] top-1.5 w-4 h-4 rounded-full bg-tacticalOrange border-2 border-voidNavy shadow-[0_0_8px_rgba(255,136,0,0.8)] z-10"
+              ></div>
+
+              <div
+                class="p-4 bg-voidNavy/60 hover:bg-voidNavy/95 rounded border border-tacticalOrange/10 hover:border-tacticalOrange/30 transition-all duration-300"
+              >
+                <div
+                  class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2"
+                >
+                  <span
+                    class="font-orbitron font-bold text-tacticalOrange text-sm flex items-center gap-2"
+                  >
+                    <span
+                      class="text-xs bg-tacticalOrange/20 text-tacticalOrange px-1.5 rounded"
+                      >PHASE 02</span
+                    >
+                    CHIVAGO FEAST & CALORIES LOAD
+                  </span>
+                  <span
+                    class="font-mono text-xs text-tacticalOrange tracking-wider"
+                    >18:30 - 20:00</span
+                  >
+                </div>
+                <p class="text-xs text-armorWhite/80 leading-relaxed mb-3">
+                  Combat refueling session at
+                  <strong class="text-tacticalOrange"
+                    >Chivago Fried Chicken</strong
+                  >. Re-energize pilot frames. Fuel requirement: Zero starting
+                  fuel level (empty stomach).
+                </p>
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-[10px] text-mechShadow uppercase"
+                    >Supply Logistics: Selected via loadout</span
+                  >
+                  <button
+                    onclick="
+                      window.open(
+                        'https://maps.google.com/?q=Chivago+Fried+Chicken',
+                        '_blank',
+                      )
+                    "
+                    class="px-3 py-1 bg-tacticalOrange/10 hover:bg-tacticalOrange/20 text-tacticalOrange border border-tacticalOrange/30 rounded text-[10px] font-mono uppercase tracking-wider transition-colors flex items-center gap-1.5"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke-width="2"
+                      stroke="currentColor"
+                      class="w-3.5 h-3.5"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                      />
+                    </svg>
+                    Navigate Target
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Directive Stage 3 -->
+            <div class="relative group">
+              <!-- Glow Orb Marker -->
+              <div
+                class="absolute -left-[23px] md:-left-[29px] top-1.5 w-4 h-4 rounded-full bg-beamRed border-2 border-voidNavy shadow-[0_0_8px_rgba(255,42,109,0.8)] z-10"
+              ></div>
+
+              <div
+                class="p-4 bg-voidNavy/60 hover:bg-voidNavy/95 rounded border border-beamRed/10 hover:border-beamRed/30 transition-all duration-300"
+              >
+                <div
+                  class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2"
+                >
+                  <span
+                    class="font-orbitron font-bold text-beamRed text-sm flex items-center gap-2"
+                  >
+                    <span
+                      class="text-xs bg-beamRed/20 text-beamRed px-1.5 rounded"
+                      >PHASE 03</span
+                    >
+                    TACTICAL BOARDGAMES & BREW
+                  </span>
+                  <span class="font-mono text-xs text-beamRed tracking-wider"
+                    >20:00 - 21:30+</span
+                  >
+                </div>
+                <p class="text-xs text-armorWhite/80 leading-relaxed mb-3">
+                  High-intensity cognitive warfare simulation. Armaments
+                  allowed: Coup, Exploding Kittens (Mèo Nổ), and celebratory
+                  gear (Birthday Crown, Pageant Sash).
+                </p>
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-[10px] text-mechShadow uppercase"
+                    >Gear Loadout: Crown, Sash & Cards</span
+                  >
+                  <button
+                    onclick="
+                      window.open(
+                        'https://maps.google.com/?q=Boardgame+Coffee',
+                        '_blank',
+                      )
+                    "
+                    class="px-3 py-1 bg-beamRed/10 hover:bg-beamRed/20 text-beamRed border border-beamRed/30 rounded text-[10px] font-mono uppercase tracking-wider transition-colors flex items-center gap-1.5"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke-width="2"
+                      stroke="currentColor"
+                      class="w-3.5 h-3.5"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                      />
+                    </svg>
+                    Navigate Target
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- RATION LOADOUT MANAGER (MENU CALCULATOR) -->
+        <section
+          class="bg-titaniumGrey/40 backdrop-blur-md rounded-lg p-5 border-glow-orange corner-bracket relative"
+        >
+          <h2
+            class="font-orbitron text-sm font-bold text-tacticalOrange tracking-wider mb-4 border-b border-tacticalOrange/10 pb-2 flex items-center gap-2"
+          >
+            <span>//</span> REFUELING RATIONS LOADOUT MANAGER
+          </h2>
+
+          <!-- Tab selection headers -->
+          <div class="flex gap-2 mb-4">
+            <button
+              onclick="switchTab('chivago')"
+              id="tab-chivago"
+              class="px-4 py-2 bg-tacticalOrange text-voidNavy font-bold font-mono text-xs uppercase tracking-wider rounded transition-colors"
+            >
+              Chivago Chicken
+            </button>
+            <button
+              onclick="switchTab('phuclong')"
+              id="tab-phuclong"
+              class="px-4 py-2 bg-voidNavy/60 hover:bg-voidNavy text-tacticalOrange border border-tacticalOrange/30 font-bold font-mono text-xs uppercase tracking-wider rounded transition-colors"
+            >
+              Phúc Long Tea
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <!-- MENU CARDS -->
+            <div class="md:col-span-7 space-y-3" id="menu-container">
+              <!-- Dynamic Content loaded here via Javascript -->
+            </div>
+
+            <!-- CALCULATION BOX -->
+            <div
+              class="md:col-span-5 bg-voidNavy/70 p-4 rounded border border-tacticalOrange/20 flex flex-col justify-between"
+            >
+              <div>
+                <span
+                  class="block font-mono text-[10px] text-mechShadow uppercase tracking-widest mb-2"
+                  >Refueling Manifest Summary</span
+                >
+
+                <!-- Itemized receipt lines list -->
+                <div
+                  class="space-y-2 max-h-36 overflow-y-auto pr-1"
+                  id="manifest-list"
+                >
+                  <div
+                    class="text-xs font-mono text-mechShadow text-center py-4"
+                  >
+                    No rations loaded in pilot frame.
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 pt-3 border-t border-tacticalOrange/20">
+                <div class="flex justify-between items-end mb-3">
+                  <span class="font-mono text-xs text-mechShadow uppercase"
+                    >Est. Supply Cost:</span
+                  >
+                  <span
+                    class="font-orbitron text-xl font-black text-tacticalOrange"
+                    id="total-price"
+                    >0 VND</span
+                  >
+                </div>
+                <button
+                  onclick="confirmLoadout()"
+                  class="w-full py-2.5 bg-tacticalOrange hover:bg-tacticalOrange/90 text-voidNavy font-bold font-orbitron text-xs uppercase tracking-widest rounded shadow-[0_0_10px_rgba(255,136,0,0.4)] transition-all flex items-center justify-center gap-2"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="2.5"
+                    stroke="currentColor"
+                    class="w-4 h-4"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  Authorize Supply Load
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- FOOTER STATUSBAR -->
+    <footer
+      class="w-full mt-6 pt-4 border-t border-hyperCyan/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-mechShadow"
+    >
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span>SYS_READY // LINK ONLINE</span>
+      </div>
+      <div>Catto Corp © 2026 // Custom High-Fidelity Tactical Blueprint</div>
+      <div class="flex gap-4">
+        <span
+          class="hover:text-hyperCyan cursor-pointer"
+          onclick="playBeep('success')"
+          >CALIBRATION</span
+        >
+        <span>SECURE_LINK // RSA_2048</span>
+      </div>
+    </footer>
+
+    <!-- CUSTOM MOCK BANNER CONTAINER FOR NOTIFICATIONS -->
+    <div
+      id="toast-banner"
+      class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-voidNavy/95 border-2 border-hyperCyan text-hyperCyan font-mono text-xs py-3 px-6 rounded shadow-[0_0_20px_rgba(0,240,255,0.4)] transition-all duration-300 translate-y-24 opacity-0 z-50 flex items-center gap-3"
+    >
+      <span class="w-2 h-2 rounded-full bg-hyperCyan animate-ping"></span>
+      <span id="toast-message">System notification linked.</span>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC & INTERACTIONS -->
+    <script>
+      // ----------------------------------------------------
+      // CONSTANTS & STATE MANAGEMENT
+      // ----------------------------------------------------
+      const targetLaunchDate = new Date("2026-06-20T15:30:00").getTime();
+
+      // Food Rations Data
+      const menus = {
+        chivago: [
+          {
+            id: "chick-01",
+            name: "Gà rán sốt tỏi tương (Chivago)",
+            price: 165000,
+            desc: "Premium Korean Garlic Fried Chicken",
+          },
+          {
+            id: "chick-02",
+            name: "Gà cay giòn rụm",
+            price: 155000,
+            desc: "Crispy spicy wing & thigh set",
+          },
+          {
+            id: "side-01",
+            name: "Khoai tây chiên Hàn Quốc",
+            price: 45000,
+            desc: "Golden fries with authentic glaze",
+          },
+        ],
+        phuclong: [
+          {
+            id: "tea-01",
+            name: "Trà Sữa Phúc Long (L)",
+            price: 55000,
+            desc: "Famous dark-roast milk tea with high caffeine",
+          },
+          {
+            id: "tea-02",
+            name: "Trà Đào Đá Phúc Long (L)",
+            price: 50000,
+            desc: "Signature iced peach black tea",
+          },
+          {
+            id: "tea-03",
+            name: "Trà Ô Long Sữa",
+            price: 52000,
+            desc: "Silky smooth Oolong milk tea",
+          },
+        ],
+      };
+
+      let currentTab = "chivago";
+      let loadedRations = {}; // structure: { 'chick-01': 2 }
+
+      // ----------------------------------------------------
+      // INITIALIZATION & EVENT LISTENERS
+      // ----------------------------------------------------
+      window.addEventListener("load", () => {
+        // Start Countdown Ticker
+        setInterval(updateCountdown, 1000);
+        updateCountdown();
+
+        // Load initial menus
+        renderMenu();
+        updateManifestSummary();
+
+        // Splash alert on boot
+        showToast("N-25 COCKPIT SYSTEMS STABILIZED", "success");
+      });
+
+      // ----------------------------------------------------
+      // COUNTDOWN TIMER TICKER
+      // ----------------------------------------------------
+      function updateCountdown() {
+        const now = new Date().getTime();
+        const difference = targetLaunchDate - now;
+
+        const countdownEl = document.getElementById("countdown-timer");
+
+        if (difference < 0) {
+          countdownEl.innerText =
+            "TACTICAL TARGET LAUNCHED // CELEBRATION ACTIVE";
+          return;
+        }
+
+        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+        const hours = Math.floor(
+          (difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+        );
+        const minutes = Math.floor(
+          (difference % (1000 * 60 * 60)) / (1000 * 60),
+        );
+        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+        // Pad numbers
+        const dStr = days.toString().padStart(2, "0");
+        const hStr = hours.toString().padStart(2, "0");
+        const mStr = minutes.toString().padStart(2, "0");
+        const sStr = seconds.toString().padStart(2, "0");
+
+        countdownEl.innerText = `LAUNCH ${dStr}d ${hStr}h ${mStr}m ${sStr}s`;
+      }
+
+      // ----------------------------------------------------
+      // PILOT INTERACTION
+      // ----------------------------------------------------
+      function selectPilot(name, role) {
+        playBeep("radar");
+
+        // Update Active Node Visual style classes
+        document.querySelectorAll(".pilot-node").forEach((node) => {
+          node.classList.remove("bg-hyperCyan/10", "border-hyperCyan/40");
+          node.classList.add("bg-voidNavy/40", "border-hyperCyan/10");
+        });
+
+        // Find current element and highlight it
+        event.currentTarget.classList.add(
+          "bg-hyperCyan/10",
+          "border-hyperCyan/40",
+        );
+        event.currentTarget.classList.remove(
+          "bg-voidNavy/40",
+          "border-hyperCyan/10",
+        );
+
+        addConsoleLog(
+          `[RADAR] Querying biometric feedback for Pilot ${name}... Status nominal.`,
+        );
+        showToast(
+          `CONNECTED PILOT: ${name.toUpperCase()} (${role.toUpperCase()})`,
+        );
+      }
+
+      // ----------------------------------------------------
+      // CONSOLE INTERACTIVE COMMANDS
+      // ----------------------------------------------------
+      function sendConsoleCommand() {
+        const input = document.getElementById("console-input");
+        const text = input.value.trim().toLowerCase();
+        if (!text) return;
+
+        playBeep("click");
+        addConsoleLog(`>> ${input.value}`);
+        input.value = "";
+
+        setTimeout(() => {
+          if (text.includes("nam") || text.includes("birthday")) {
+            addConsoleLog(
+              `[P.H.U.O.C] "Happy 25th Tactical Cycle to Commander Phạm Sơn Nam!"`,
+              "tacticalOrange",
+            );
+            showToast("HARO: HAPPY 25TH BIRTHDAY NAM!", "success");
+          } else if (text.includes("clear")) {
+            document.getElementById("console-logs").innerHTML = "";
+            addConsoleLog(`[SYSTEM] Telemetry buffers cleared.`);
+          } else if (text.includes("gundam") || text.includes("mecha")) {
+            addConsoleLog(`[SYSTEM] Core Chassis RX-NAM-25 fully optimized.`);
+            showToast("MECHA PROTOCOLS ENGAGED");
+          } else {
+            addConsoleLog(
+              `[P.H.U.O.C] "Command acknowledged. Processing packet..."`,
+            );
+          }
+        }, 400);
+      }
+
+      function addConsoleLog(message, colorClass = "hyperCyan") {
+        const consoleLogs = document.getElementById("console-logs");
+        const logDiv = document.createElement("div");
+
+        if (colorClass === "tacticalOrange")
+          logDiv.className = "text-tacticalOrange";
+        else if (colorClass === "beamRed") logDiv.className = "text-beamRed";
+        else logDiv.className = "text-hyperCyan";
+
+        logDiv.innerText = message;
+        consoleLogs.appendChild(logDiv);
+        consoleLogs.scrollTop = consoleLogs.scrollHeight;
+      }
+
+      // ----------------------------------------------------
+      // TOAST DISPLAY MANAGER
+      // ----------------------------------------------------
+      function showToast(message, type = "normal") {
+        const toast = document.getElementById("toast-banner");
+        const toastMsg = document.getElementById("toast-message");
+
+        // Adjust Border colors based on theme trigger
+        if (type === "success") {
+          toast.className = toast.className
+            .replace(/border-[a-z/0-9]+/, "border-emerald-400")
+            .replace(/text-[a-z/0-9]+/, "text-emerald-400");
+          playBeep("success");
+        } else {
+          toast.className = toast.className
+            .replace(/border-[a-z/0-9]+/, "border-hyperCyan")
+            .replace(/text-[a-z/0-9]+/, "text-hyperCyan");
+        }
+
+        toastMsg.innerText = message;
+        toast.classList.remove("translate-y-24", "opacity-0");
+
+        setTimeout(() => {
+          toast.classList.add("translate-y-24", "opacity-0");
+        }, 3000);
+      }
+
+      // ----------------------------------------------------
+      // PAINT SHOP MECHA CUSTOMIZER
+      // ----------------------------------------------------
+      function applyCoating(primary, secondary) {
+        playBeep("click");
+
+        const vFinLeft = document.getElementById("v-fin-left");
+        const vFinRight = document.getElementById("v-fin-right");
+        const leftEye = document.getElementById("left-eye");
+        const rightEye = document.getElementById("right-eye");
+
+        vFinLeft.setAttribute(
+          "fill",
+          primary === "hyperCyan"
+            ? "#00F0FF"
+            : primary === "tacticalOrange"
+              ? "#FF8800"
+              : primary === "beamRed"
+                ? "#FF2A6D"
+                : primary,
+        );
+        vFinRight.setAttribute(
+          "fill",
+          primary === "hyperCyan"
+            ? "#00F0FF"
+            : primary === "tacticalOrange"
+              ? "#FF8800"
+              : primary === "beamRed"
+                ? "#FF2A6D"
+                : primary,
+        );
+
+        // Eyes change tint
+        leftEye.setAttribute(
+          "fill",
+          secondary === "hyperCyan" ? "#00F0FF" : "#E2E8F0",
+        );
+        rightEye.setAttribute(
+          "fill",
+          secondary === "hyperCyan" ? "#00F0FF" : "#E2E8F0",
+        );
+
+        addConsoleLog(`[COLOR] Unit paint armor re-coated successfully.`);
+        showToast("COATING SCHEME ALIGNED");
+      }
+
+      function toggleAccessory(id, checkbox) {
+        playBeep("success");
+        const element = document.getElementById(id);
+        if (checkbox.checked) {
+          element.classList.remove("hidden");
+          addConsoleLog(
+            `[GEAR] Mounted ${id.replace("acc-", "").toUpperCase()} to RX-NAM-25 head unit.`,
+            "tacticalOrange",
+          );
+        } else {
+          element.classList.add("hidden");
+          addConsoleLog(
+            `[GEAR] Uninstalled accessory slot: ${id.replace("acc-", "").toUpperCase()}`,
+          );
+        }
+      }
+
+      // ----------------------------------------------------
+      // P.H.U.O.C AUDIO BRIEFING (TTS SYNTH)
+      // ----------------------------------------------------
+      function playVoiceBriefing() {
+        playBeep("radio");
+        const btn = document.getElementById("voice-btn");
+        const sub = document.getElementById("voice-subtitles");
+
+        const textToSpeak = `Ready. Initiating tactical briefing packet for pilot Pham Son Nam. 
+            Hi Nam, this is P.H.U.O.C. (Pilot's Humanoid Utility Operations Companion) - as know as PHUOC. I am delivering your birthday tactical briefing.
+            Phase one starts at Karaoke iCool fifteen thirty, followed by calories load at Chivago fried chicken. 
+            Phase three is tactical boardgames. Ensure empty stomach at phase two. Happy birthday commander!`;
+
+        if ("speechSynthesis" in window) {
+          // Stop any current speaking
+          window.speechSynthesis.cancel();
+
+          const utterance = new SpeechSynthesisUtterance(textToSpeak);
+          utterance.rate = 1.05;
+          utterance.pitch = 1.4; // Slightly high-pitched robot/HARO sound
+
+          utterance.onstart = () => {
+            sub.innerText = 'P.H.U.O.C: "Initiating vocal brief..."';
+            btn.innerHTML = `
+            <span class="inline-block animate-ping rounded-full h-2 w-2 bg-tacticalOrange mr-2"></span>
+            Transmitting Telemetry...
+          `;
+          };
+
+          utterance.onend = () => {
+            sub.innerText =
+              'P.H.U.O.C: "Transmission complete. Good hunting, pilots."';
+            btn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+            </svg>
+            Listen to Intel Packet
+          `;
+            playBeep("radio");
+          };
+
+          window.speechSynthesis.speak(utterance);
+        } else {
+          sub.innerText =
+            'P.H.U.O.C: "Vocal synthesizer not compatible in current environment. Summary: iCool Karaoke at 15:30 -> Chivago Fried Chicken at 18:30 -> Boardgames at 20:00."';
+          showToast("TTS NOT SUPPORTED ON BROWSER");
+        }
+      }
+
+      // ----------------------------------------------------
+      // RATION LOADOUT SYSTEM
+      // ----------------------------------------------------
+      function switchTab(tabId) {
+        playBeep("click");
+        currentTab = tabId;
+
+        // Update Tab CSS
+        const tabChivago = document.getElementById("tab-chivago");
+        const tabPhuclong = document.getElementById("tab-phuclong");
+
+        if (tabId === "chivago") {
+          tabChivago.className =
+            "px-4 py-2 bg-tacticalOrange text-voidNavy font-bold font-mono text-xs uppercase tracking-wider rounded transition-colors";
+          tabPhuclong.className =
+            "px-4 py-2 bg-voidNavy/60 hover:bg-voidNavy text-tacticalOrange border border-tacticalOrange/30 font-bold font-mono text-xs uppercase tracking-wider rounded transition-colors";
+        } else {
+          tabPhuclong.className =
+            "px-4 py-2 bg-tacticalOrange text-voidNavy font-bold font-mono text-xs uppercase tracking-wider rounded transition-colors";
+          tabChivago.className =
+            "px-4 py-2 bg-voidNavy/60 hover:bg-voidNavy text-tacticalOrange border border-tacticalOrange/30 font-bold font-mono text-xs uppercase tracking-wider rounded transition-colors";
+        }
+
+        renderMenu();
+      }
+
+      function renderMenu() {
+        const container = document.getElementById("menu-container");
+        container.innerHTML = "";
+
+        const activeMenu = menus[currentTab];
+
+        activeMenu.forEach((item) => {
+          const qty = loadedRations[item.id] || 0;
+
+          const row = document.createElement("div");
+          row.className =
+            "flex items-center justify-between p-3 bg-voidNavy/50 border border-tacticalOrange/10 hover:border-tacticalOrange/30 rounded transition-all";
+          row.innerHTML = `
+          <div>
+            <h4 class="font-mono text-xs text-armorWhite font-bold">${item.name}</h4>
+            <p class="text-[10px] text-mechShadow uppercase mt-0.5">${item.desc}</p>
+            <span class="text-xs text-tacticalOrange font-mono font-bold block mt-1">${item.price.toLocaleString("vi-VN")} VND</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <button onclick="changeQty('${item.id}', -1)" class="w-7 h-7 bg-tacticalOrange/10 hover:bg-tacticalOrange/20 text-tacticalOrange border border-tacticalOrange/30 font-bold font-mono text-xs rounded transition-colors flex items-center justify-center">-</button>
+            <span class="font-orbitron font-bold text-sm text-armorWhite w-4 text-center">${qty}</span>
+            <button onclick="changeQty('${item.id}', 1)" class="w-7 h-7 bg-tacticalOrange/10 hover:bg-tacticalOrange/20 text-tacticalOrange border border-tacticalOrange/30 font-bold font-mono text-xs rounded transition-colors flex items-center justify-center">+</button>
+          </div>
+        `;
+          container.appendChild(row);
+        });
+      }
+
+      function changeQty(itemId, change) {
+        playBeep("click");
+        const currentQty = loadedRations[itemId] || 0;
+        const newQty = Math.max(0, currentQty + change);
+
+        if (newQty === 0) {
+          delete loadedRations[itemId];
+        } else {
+          loadedRations[itemId] = newQty;
+        }
+
+        renderMenu();
+        updateManifestSummary();
+      }
+
+      function updateManifestSummary() {
+        const listContainer = document.getElementById("manifest-list");
+        const totalPriceEl = document.getElementById("total-price");
+        listContainer.innerHTML = "";
+
+        let grandTotal = 0;
+        let hasItems = false;
+
+        // Scan all menus
+        Object.keys(menus).forEach((key) => {
+          menus[key].forEach((item) => {
+            const qty = loadedRations[item.id];
+            if (qty && qty > 0) {
+              hasItems = true;
+              const lineCost = item.price * qty;
+              grandTotal += lineCost;
+
+              const manifestItem = document.createElement("div");
+              manifestItem.className =
+                "flex justify-between items-center text-[11px] font-mono border-b border-voidNavy pb-1";
+              manifestItem.innerHTML = `
+              <span class="text-armorWhite/80 truncate max-w-[140px]">${item.name}</span>
+              <span class="text-tacticalOrange font-bold">x${qty}</span>
+              <span class="text-armorWhite font-bold">${lineCost.toLocaleString("vi-VN")} đ</span>
+            `;
+              listContainer.appendChild(manifestItem);
+            }
+          });
+        });
+
+        if (!hasItems) {
+          listContainer.innerHTML =
+            '<div class="text-xs font-mono text-mechShadow text-center py-4">No rations loaded in pilot frame.</div>';
+        }
+
+        totalPriceEl.innerText = `${grandTotal.toLocaleString("vi-VN")} VND`;
+      }
+
+      function confirmLoadout() {
+        let itemsCount = 0;
+        Object.values(loadedRations).forEach((v) => (itemsCount += v));
+
+        if (itemsCount === 0) {
+          showToast("RATION BAY EMPTY // SELECT QUANTITIES FIRST");
+          return;
+        }
+
+        playBeep("success");
+        addConsoleLog(
+          `[LOGISTICS] Pilot food rations payload confirmed. Sync completed.`,
+        );
+        showToast("SUPPLY ROUTE SECURED!", "success");
+      }
+    </script>
+  </body>
+</html>
